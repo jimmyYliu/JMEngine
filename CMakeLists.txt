@@ -10,9 +10,18 @@ if (POLICY CMP0141)
 endif()
 
 project ("JMEngine")
+set(JMENGINE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+
+add_subdirectory(engine)
 
 # 将源代码添加到此项目的可执行文件。
-add_executable (JMEngine "JMEngine.cpp" "JMEngine.h")
+add_executable (JMEngine "engine/JMEngine.cpp" "engine/JMEngine.h")
+
+target_link_libraries(JMEngine PUBLIC glfw)
+target_link_libraries(JMEngine PUBLIC imgui)
+target_link_libraries(JMEngine PUBLIC glm)
+target_link_libraries(JMEngine PUBLIC ${vulkan_lib})
+
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET JMEngine PROPERTY CXX_STANDARD 20)
