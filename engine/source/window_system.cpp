@@ -9,7 +9,7 @@ namespace JMEngine
 		glfwTerminate();
 	}
 
-	void WindowSystem::Initialize(const WindowInfo& info)
+	void WindowSystem::Initialize(const WindowInfo &info)
 	{
 		if (!glfwInit())
 		{
@@ -20,7 +20,7 @@ namespace JMEngine
 		m_width = info.width;
 		m_height = info.height;
 
-		// ´´½¨´°¿Ú
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		m_window = glfwCreateWindow(m_width, m_height, info.title, nullptr, nullptr);
 		if (!m_window)

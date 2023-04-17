@@ -19,47 +19,48 @@ namespace JMEngine
 
 	struct SwapChainSupportDetails
 	{
-		VkSurfaceCapabilitiesKHR        capabilities;
+		VkSurfaceCapabilitiesKHR capabilities;
 		std::vector<VkSurfaceFormatKHR> formats;
-		std::vector<VkPresentModeKHR>   presentModes;
+		std::vector<VkPresentModeKHR> presentModes;
 	};
 
 	class VulkanRHI final
 	{
 	public:
-		void Initialize(std::shared_ptr<WindowSystem>& windowSystem);
+		void Initialize(std::shared_ptr<WindowSystem> &windowSystem);
 
 		void Clear();
 
 	private:
-		const std::vector<char const*> m_validationLayers{ "VK_LAYER_KHRONOS_validation" };
-		std::vector<char const*> m_deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-		bool m_enableValidationLayers{ true };
+		const std::vector<char const *> m_validationLayers{"VK_LAYER_KHRONOS_validation"};
+		std::vector<char const *> m_deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+		bool m_enableValidationLayers{true};
+		bool m_enablePointLightShadow{true};
 		QueueFamilyIndices m_queueIndices;
 
-		GLFWwindow* m_window{ nullptr };
+		GLFWwindow *m_window{nullptr};
 
-		VkInstance m_instance{ nullptr };
-		VkDebugUtilsMessengerEXT m_debugMessenger{ nullptr };
+		VkInstance m_instance{nullptr};
+		VkDebugUtilsMessengerEXT m_debugMessenger{nullptr};
 		VkSurfaceKHR m_surface;
-		VkPhysicalDevice m_physicalDevice{ VK_NULL_HANDLE };
-		VkDevice m_device{ nullptr };
-		VkQueue m_graphicsQueue{ nullptr };
+		VkPhysicalDevice m_physicalDevice{VK_NULL_HANDLE};
+		VkDevice m_device{nullptr};
+		VkQueue m_graphicsQueue{nullptr};
 
 		void CreateInstance();
 		void SetupDebugMessenger();
 		void CreateSurface();
 		void PickPhysicalDevice();
+		void CreateLogicalDevice();
 
 		bool CheckValidationLayerSupport();
-		std::vector<const char*> GetRequiredExtensions();
-		void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
-		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+		std::vector<const char *> GetRequiredExtensions();
+		void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
+		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger);
+		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator);
 		bool IsDeviceSuitable(VkPhysicalDevice device);
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice);
 		bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice);
 		SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice physicalDevice);
-
 	};
 }

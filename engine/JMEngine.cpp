@@ -2,7 +2,7 @@
 
 #include <memory>
 
-int main(int, char**)
+int main(int, char **)
 {
 	JMEngine::WindowInfo windowInfo;
 	std::shared_ptr<JMEngine::WindowSystem> window = std::make_shared<JMEngine::WindowSystem>();
