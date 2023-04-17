@@ -16,6 +16,13 @@ namespace JMEngine
 		LOG_DEBUG("enable validation layers in vulkan");
 		m_enableValidationLayers = true;
 #endif
+
+#if defined(__GNUC__) && defined(__MACH__)
+		m_enablePointLightShadow = false;
+#else
+		m_enablePointLightShadow = true;
+#endif
+
 		CreateInstance();
 		SetupDebugMessenger();
 		CreateSurface();
@@ -25,6 +32,8 @@ namespace JMEngine
 
 	void VulkanRHI::Clear()
 	{
+		vkDestroyDevice(m_device, nullptr);
+
 		if (m_enableValidationLayers)
 		{
 			DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
@@ -56,9 +65,9 @@ namespace JMEngine
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (m_enableValidationLayers)
 		{
+			VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 			createInfo.enabledLayerCount = static_cast<uint32_t>(m_validationLayers.size());
 			createInfo.ppEnabledLayerNames = m_validationLayers.data();
 
@@ -197,32 +206,33 @@ namespace JMEngine
 		}
 
 		// device create info
-		VkDeviceCreateInfo device_create_info{};
-		device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		device_create_info.pQueueCreateInfos = queue_create_infos.data();
-		device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
-		device_create_info.pEnabledFeatures = &physical_device_features;
-		device_create_info.enabledExtensionCount = static_cast<uint32_t>(m_device_extensions.size());
-		device_create_info.ppEnabledExtensionNames = m_device_extensions.data();
-		device_create_info.enabledLayerCount = 0;
+		VkDeviceCreateInfo deviceCreateInfo{};
+		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+		deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
+		deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(m_deviceExtensions.size());
+		deviceCreateInfo.ppEnabledExtensionNames = m_deviceExtensions.data();
 
-		if (vkCreateDevice(m_physical_device, &device_create_info, nullptr, &m_device) != VK_SUCCESS)
+		if (m_enableValidationLayers)
+		{
+			deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(m_validationLayers.size());
+			deviceCreateInfo.ppEnabledLayerNames = m_validationLayers.data();
+		}
+		else
+		{
+			deviceCreateInfo.enabledLayerCount = 0;
+		}
+
+		if (vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_device) != VK_SUCCESS)
 		{
 			LOG_ERROR("vk create device");
 		}
 
 		// initialize queues of this device
-		VkQueue vk_graphics_queue;
-		vkGetDeviceQueue(m_device, m_queue_indices.graphics_family.value(), 0, &vk_graphics_queue);
-		m_graphics_queue = new VulkanQueue();
-		((VulkanQueue *)m_graphics_queue)->setResource(vk_graphics_queue);
-
-		vkGetDeviceQueue(m_device, m_queue_indices.present_family.value(), 0, &m_present_queue);
-
-		VkQueue vk_compute_queue;
-		vkGetDeviceQueue(m_device, m_queue_indices.m_compute_family.value(), 0, &vk_compute_queue);
-		m_compute_queue = new VulkanQueue();
-		((VulkanQueue *)m_compute_queue)->setResource(vk_compute_queue);
+		vkGetDeviceQueue(m_device, m_queueIndices.graphicsFamily.value(), 0, &m_graphicsQueue);
+		vkGetDeviceQueue(m_device, m_queueIndices.presentFamily.value(), 0, &m_presentQueue);
+		vkGetDeviceQueue(m_device, m_queueIndices.computeFamily.value(), 0, &m_computeQueue);
 
 		// more efficient pointer
 		_vkResetCommandPool = (PFN_vkResetCommandPool)vkGetDeviceProcAddr(m_device, "vkResetCommandPool");
@@ -241,8 +251,6 @@ namespace JMEngine
 		_vkCmdBindIndexBuffer = (PFN_vkCmdBindIndexBuffer)vkGetDeviceProcAddr(m_device, "vkCmdBindIndexBuffer");
 		_vkCmdBindDescriptorSets = (PFN_vkCmdBindDescriptorSets)vkGetDeviceProcAddr(m_device, "vkCmdBindDescriptorSets");
 		_vkCmdClearAttachments = (PFN_vkCmdClearAttachments)vkGetDeviceProcAddr(m_device, "vkCmdClearAttachments");
-
-		m_depth_image_format = (RHIFormat)findDepthFormat();
 	}
 
 	bool VulkanRHI::CheckValidationLayerSupport()
@@ -296,7 +304,7 @@ namespace JMEngine
 														const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
 														void *)
 	{
-		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+		LOG_DEBUG("validation layer: " + pCallbackData->pMessage);
 		return VK_FALSE;
 	}
 

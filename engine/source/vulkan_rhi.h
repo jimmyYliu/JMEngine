@@ -45,7 +45,9 @@ namespace JMEngine
 		VkSurfaceKHR m_surface;
 		VkPhysicalDevice m_physicalDevice{VK_NULL_HANDLE};
 		VkDevice m_device{nullptr};
+		VkQueue m_presentQueue{nullptr};
 		VkQueue m_graphicsQueue{nullptr};
+		VkQueue m_computeQueue{nullptr};
 
 		void CreateInstance();
 		void SetupDebugMessenger();
@@ -62,5 +64,25 @@ namespace JMEngine
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice);
 		bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice);
 		SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice physicalDevice);
+
+		// function pointers
+		PFN_vkCmdBeginDebugUtilsLabelEXT _vkCmdBeginDebugUtilsLabelEXT;
+		PFN_vkCmdEndDebugUtilsLabelEXT _vkCmdEndDebugUtilsLabelEXT;
+		PFN_vkWaitForFences _vkWaitForFences;
+		PFN_vkResetFences _vkResetFences;
+		PFN_vkResetCommandPool _vkResetCommandPool;
+		PFN_vkBeginCommandBuffer _vkBeginCommandBuffer;
+		PFN_vkEndCommandBuffer _vkEndCommandBuffer;
+		PFN_vkCmdBeginRenderPass _vkCmdBeginRenderPass;
+		PFN_vkCmdNextSubpass _vkCmdNextSubpass;
+		PFN_vkCmdEndRenderPass _vkCmdEndRenderPass;
+		PFN_vkCmdBindPipeline _vkCmdBindPipeline;
+		PFN_vkCmdSetViewport _vkCmdSetViewport;
+		PFN_vkCmdSetScissor _vkCmdSetScissor;
+		PFN_vkCmdBindVertexBuffers _vkCmdBindVertexBuffers;
+		PFN_vkCmdBindIndexBuffer _vkCmdBindIndexBuffer;
+		PFN_vkCmdBindDescriptorSets _vkCmdBindDescriptorSets;
+		PFN_vkCmdDrawIndexed _vkCmdDrawIndexed;
+		PFN_vkCmdClearAttachments _vkCmdClearAttachments;
 	};
 }
