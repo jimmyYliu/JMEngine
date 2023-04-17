@@ -1,6 +1,8 @@
 set(ENGINE_ROOT_DIR "${JMENGINE_ROOT_DIR}/engine")
 set(THIRD_PARTY_DIR "${ENGINE_ROOT_DIR}/3rdparty")
 
+set(TARGET_NAME JMEngine)
+
 set(vulkan_include ${THIRD_PARTY_DIR}/VulkanSDK/include)
 
 if(WIN32)
@@ -23,4 +25,10 @@ else()
 endif()
 
 add_subdirectory(3rdparty)
+add_subdirectory(source)
+
+# 将源代码添加到此项目的可执行文件。
+add_executable (${TARGET_NAME} "JMEngine.cpp" "JMEngine.h")
+
+target_link_libraries(JMEngine PUBLIC JMEngineRuntime)
 
