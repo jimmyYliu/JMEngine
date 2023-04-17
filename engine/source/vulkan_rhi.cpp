@@ -6,7 +6,7 @@
 
 namespace JMEngine
 {
-	void VulkanRHI::Initialize(std::shared_ptr<WindowSystem>& windowSystem)
+	void VulkanRHI::Initialize(std::shared_ptr<WindowSystem> &windowSystem)
 	{
 		m_window = windowSystem->GetWindow();
 
@@ -20,6 +20,7 @@ namespace JMEngine
 		SetupDebugMessenger();
 		CreateSurface();
 		PickPhysicalDevice();
+		CreateLogicalDevice();
 	}
 
 	void VulkanRHI::Clear()
@@ -39,7 +40,6 @@ namespace JMEngine
 			LOG_ERROR("validation layers requested, but not available!");
 		}
 
-		// TODO:名称和版本可以调整为参数
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "JMEngineRenderer";
@@ -63,7 +63,7 @@ namespace JMEngine
 			createInfo.ppEnabledLayerNames = m_validationLayers.data();
 
 			PopulateDebugMessengerCreateInfo(debugCreateInfo);
-			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
 		}
 		else
 		{
@@ -80,7 +80,8 @@ namespace JMEngine
 
 	void VulkanRHI::SetupDebugMessenger()
 	{
-		if (!m_enableValidationLayers) return;
+		if (!m_enableValidationLayers)
+			return;
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo;
 		PopulateDebugMessengerCreateInfo(createInfo);
@@ -116,7 +117,7 @@ namespace JMEngine
 			vkEnumeratePhysicalDevices(m_instance, &deviceCount, physicalDevices.data());
 
 			std::vector<std::pair<int, VkPhysicalDevice>> rankedPhysicalDevices;
-			for (const auto& device : physicalDevices)
+			for (const auto &device : physicalDevices)
 			{
 				VkPhysicalDeviceProperties physicalDeviceProperties;
 				vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
@@ -131,17 +132,17 @@ namespace JMEngine
 					score += 100;
 				}
 
-				rankedPhysicalDevices.push_back({ score, device });
+				rankedPhysicalDevices.push_back({score, device});
 			}
 
 			std::sort(rankedPhysicalDevices.begin(),
-				rankedPhysicalDevices.end(),
-				[](const std::pair<int, VkPhysicalDevice>& p1, const std::pair<int, VkPhysicalDevice>& p2)
-				{
-					return p1 > p2;
-				});
+					  rankedPhysicalDevices.end(),
+					  [](const std::pair<int, VkPhysicalDevice> &p1, const std::pair<int, VkPhysicalDevice> &p2)
+					  {
+						  return p1 > p2;
+					  });
 
-			for (const auto& device : rankedPhysicalDevices)
+			for (const auto &device : rankedPhysicalDevices)
 			{
 				if (IsDeviceSuitable(device.second))
 				{
@@ -157,6 +158,93 @@ namespace JMEngine
 		}
 	}
 
+	void VulkanRHI::CreateLogicalDevice()
+	{
+		m_queueIndices = FindQueueFamilies(m_physicalDevice);
+
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos; // all queues that need to be created
+		std::set<uint32_t> queueFamilies = {m_queueIndices.graphicsFamily.value(),
+											m_queueIndices.presentFamily.value(),
+											m_queueIndices.computeFamily.value()};
+
+		float queuePriority = 1.0f;
+		for (uint32_t queueFamily : queueFamilies) // for every queue family
+		{
+			// queue create info
+			VkDeviceQueueCreateInfo queueCreateInfo{};
+			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queueCreateInfo.queueFamilyIndex = queueFamily;
+			queueCreateInfo.queueCount = 1;
+			queueCreateInfo.pQueuePriorities = &queuePriority;
+			queueCreateInfos.push_back(queueCreateInfo);
+		}
+
+		// physical device features
+		VkPhysicalDeviceFeatures physicalDeviceFeatures = {};
+
+		physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
+
+		// support inefficient readback storage buffer
+		physicalDeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
+
+		// support independent blending
+		physicalDeviceFeatures.independentBlend = VK_TRUE;
+
+		// support geometry shader
+		if (m_enablePointLightShadow)
+		{
+			physicalDeviceFeatures.geometryShader = VK_TRUE;
+		}
+
+		// device create info
+		VkDeviceCreateInfo device_create_info{};
+		device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		device_create_info.pQueueCreateInfos = queue_create_infos.data();
+		device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+		device_create_info.pEnabledFeatures = &physical_device_features;
+		device_create_info.enabledExtensionCount = static_cast<uint32_t>(m_device_extensions.size());
+		device_create_info.ppEnabledExtensionNames = m_device_extensions.data();
+		device_create_info.enabledLayerCount = 0;
+
+		if (vkCreateDevice(m_physical_device, &device_create_info, nullptr, &m_device) != VK_SUCCESS)
+		{
+			LOG_ERROR("vk create device");
+		}
+
+		// initialize queues of this device
+		VkQueue vk_graphics_queue;
+		vkGetDeviceQueue(m_device, m_queue_indices.graphics_family.value(), 0, &vk_graphics_queue);
+		m_graphics_queue = new VulkanQueue();
+		((VulkanQueue *)m_graphics_queue)->setResource(vk_graphics_queue);
+
+		vkGetDeviceQueue(m_device, m_queue_indices.present_family.value(), 0, &m_present_queue);
+
+		VkQueue vk_compute_queue;
+		vkGetDeviceQueue(m_device, m_queue_indices.m_compute_family.value(), 0, &vk_compute_queue);
+		m_compute_queue = new VulkanQueue();
+		((VulkanQueue *)m_compute_queue)->setResource(vk_compute_queue);
+
+		// more efficient pointer
+		_vkResetCommandPool = (PFN_vkResetCommandPool)vkGetDeviceProcAddr(m_device, "vkResetCommandPool");
+		_vkBeginCommandBuffer = (PFN_vkBeginCommandBuffer)vkGetDeviceProcAddr(m_device, "vkBeginCommandBuffer");
+		_vkEndCommandBuffer = (PFN_vkEndCommandBuffer)vkGetDeviceProcAddr(m_device, "vkEndCommandBuffer");
+		_vkCmdBeginRenderPass = (PFN_vkCmdBeginRenderPass)vkGetDeviceProcAddr(m_device, "vkCmdBeginRenderPass");
+		_vkCmdNextSubpass = (PFN_vkCmdNextSubpass)vkGetDeviceProcAddr(m_device, "vkCmdNextSubpass");
+		_vkCmdEndRenderPass = (PFN_vkCmdEndRenderPass)vkGetDeviceProcAddr(m_device, "vkCmdEndRenderPass");
+		_vkCmdBindPipeline = (PFN_vkCmdBindPipeline)vkGetDeviceProcAddr(m_device, "vkCmdBindPipeline");
+		_vkCmdSetViewport = (PFN_vkCmdSetViewport)vkGetDeviceProcAddr(m_device, "vkCmdSetViewport");
+		_vkCmdSetScissor = (PFN_vkCmdSetScissor)vkGetDeviceProcAddr(m_device, "vkCmdSetScissor");
+		_vkWaitForFences = (PFN_vkWaitForFences)vkGetDeviceProcAddr(m_device, "vkWaitForFences");
+		_vkResetFences = (PFN_vkResetFences)vkGetDeviceProcAddr(m_device, "vkResetFences");
+		_vkCmdDrawIndexed = (PFN_vkCmdDrawIndexed)vkGetDeviceProcAddr(m_device, "vkCmdDrawIndexed");
+		_vkCmdBindVertexBuffers = (PFN_vkCmdBindVertexBuffers)vkGetDeviceProcAddr(m_device, "vkCmdBindVertexBuffers");
+		_vkCmdBindIndexBuffer = (PFN_vkCmdBindIndexBuffer)vkGetDeviceProcAddr(m_device, "vkCmdBindIndexBuffer");
+		_vkCmdBindDescriptorSets = (PFN_vkCmdBindDescriptorSets)vkGetDeviceProcAddr(m_device, "vkCmdBindDescriptorSets");
+		_vkCmdClearAttachments = (PFN_vkCmdClearAttachments)vkGetDeviceProcAddr(m_device, "vkCmdClearAttachments");
+
+		m_depth_image_format = (RHIFormat)findDepthFormat();
+	}
+
 	bool VulkanRHI::CheckValidationLayerSupport()
 	{
 		uint32_t layerCount;
@@ -165,11 +253,11 @@ namespace JMEngine
 		std::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-		for (const char* layerName : m_validationLayers)
+		for (const char *layerName : m_validationLayers)
 		{
 			bool layerFound = false;
 
-			for (const auto& layerProperties : availableLayers)
+			for (const auto &layerProperties : availableLayers)
 			{
 				if (strcmp(layerName, layerProperties.layerName) == 0)
 				{
@@ -187,13 +275,13 @@ namespace JMEngine
 		return true;
 	}
 
-	std::vector<const char*> VulkanRHI::GetRequiredExtensions()
+	std::vector<const char *> VulkanRHI::GetRequiredExtensions()
 	{
 		uint32_t glfwExtensionCount = 0;
-		const char** glfwExtensions;
+		const char **glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+		std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
 		if (m_enableValidationLayers)
 		{
@@ -204,15 +292,15 @@ namespace JMEngine
 	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT,
-		VkDebugUtilsMessageTypeFlagsEXT,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void*)
+														VkDebugUtilsMessageTypeFlagsEXT,
+														const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+														void *)
 	{
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 		return VK_FALSE;
 	}
 
-	void VulkanRHI::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	void VulkanRHI::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo)
 	{
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -221,7 +309,7 @@ namespace JMEngine
 		createInfo.pfnUserCallback = debugCallback;
 	}
 
-	VkResult VulkanRHI::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
+	VkResult VulkanRHI::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger)
 	{
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 		if (func != nullptr)
@@ -234,7 +322,7 @@ namespace JMEngine
 		}
 	}
 
-	void VulkanRHI::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+	void VulkanRHI::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator)
 	{
 		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 		if (func != nullptr)
@@ -275,7 +363,7 @@ namespace JMEngine
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 
 		int i = 0;
-		for (const auto& queueFamily : queueFamilies)
+		for (const auto &queueFamily : queueFamilies)
 		{
 			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			{
@@ -287,12 +375,11 @@ namespace JMEngine
 				indices.computeFamily = i;
 			}
 
-
 			VkBool32 isPresentSupport = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice,
-				i,
-				m_surface,
-				&isPresentSupport);
+												 i,
+												 m_surface,
+												 &isPresentSupport);
 			if (isPresentSupport)
 			{
 				indices.presentFamily = i;
@@ -346,7 +433,7 @@ namespace JMEngine
 		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
 
 		std::set<std::string> requiredExtensions(m_deviceExtensions.begin(), m_deviceExtensions.end());
-		for (const auto& extension : availableExtensions)
+		for (const auto &extension : availableExtensions)
 		{
 			requiredExtensions.erase(extension.extensionName);
 		}
