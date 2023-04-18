@@ -1,6 +1,6 @@
 #pragma once
 
-#include "window_system.h"
+#include "source/window_system.h"
 
 #include <vector>
 #include <memory>
@@ -30,9 +30,11 @@ namespace JMEngine
 		void Initialize(std::shared_ptr<WindowSystem> &windowSystem);
 
 		void Clear();
+		void DrawFrame();
 
 	private:
-		const std::vector<char const *> m_validationLayers{"VK_LAYER_KHRONOS_validation"};
+		const std::vector<char const *>
+			m_validationLayers{"VK_LAYER_KHRONOS_validation"};
 		std::vector<char const *> m_deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 		bool m_enableValidationLayers{true};
 		bool m_enablePointLightShadow{true};
@@ -48,12 +50,33 @@ namespace JMEngine
 		VkQueue m_presentQueue{nullptr};
 		VkQueue m_graphicsQueue{nullptr};
 		VkQueue m_computeQueue{nullptr};
+		VkSwapchainKHR m_swapchain{nullptr};
+		std::vector<VkImage> m_swapchainImages;
+		VkFormat m_swapchainImageFormat;
+		VkExtent2D m_swapchainExtent;
+		std::vector<VkImageView> m_swapchainImageViews;
+		VkRenderPass m_renderPass;
+		VkPipelineLayout m_pipelineLayout;
+		VkPipeline m_graphicsPipeline;
+		std::vector<VkFramebuffer> m_swapchainFramebuffers;
+		VkCommandPool m_commandPool;
+		std::vector<VkCommandBuffer> m_commandBuffers;
+		VkSemaphore m_imageAvailableSemaphore;
+		VkSemaphore m_renderFinishedSemaphore;
 
 		void CreateInstance();
 		void SetupDebugMessenger();
 		void CreateSurface();
 		void PickPhysicalDevice();
 		void CreateLogicalDevice();
+		void CreateSwapChain();
+		void CreateImageViews();
+		void CreateRenderPass();
+		void CreateGraphicsPipeline();
+		void CreateFramebuffers();
+		void CreateCommandPool();
+		void CreateCommandBuffers();
+		void CreateSemaphores();
 
 		bool CheckValidationLayerSupport();
 		std::vector<const char *> GetRequiredExtensions();
@@ -64,6 +87,10 @@ namespace JMEngine
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice);
 		bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice);
 		SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice physicalDevice);
+		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
+		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
+		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+		VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
 		// function pointers
 		PFN_vkCmdBeginDebugUtilsLabelEXT _vkCmdBeginDebugUtilsLabelEXT;

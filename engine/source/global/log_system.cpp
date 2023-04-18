@@ -1,9 +1,8 @@
-#include "log_system.h"
+#include "source/global/log_system.h"
 
 #include <spdlog/async.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
 
 namespace JMEngine
 {

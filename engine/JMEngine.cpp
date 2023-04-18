@@ -9,7 +9,12 @@ int main(int, char **)
 	std::shared_ptr<JMEngine::VulkanRHI> kulkanRHI = std::make_shared<JMEngine::VulkanRHI>();
 	window->Initialize(windowInfo);
 	kulkanRHI->Initialize(window);
-	window->Run();
+	GLFWwindow *mainWindow = window->GetWindow();
+	while (!glfwWindowShouldClose(mainWindow))
+	{
+		glfwPollEvents();
+		kulkanRHI->DrawFrame();
+	}
 	kulkanRHI->Clear();
 	return 0;
 }

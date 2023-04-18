@@ -7,7 +7,7 @@ namespace JMEngine
 {
 	struct WindowInfo
 	{
-		int width{1280};
+		int width{1024};
 		int height{720};
 		const char *title{"JMEngine"};
 		bool isFullscreen{false};
@@ -19,7 +19,6 @@ namespace JMEngine
 		~WindowSystem();
 		void Initialize(const WindowInfo &info);
 		inline GLFWwindow *GetWindow() const { return m_window; }
-		void Run();
 
 	private:
 		GLFWwindow *m_window{nullptr};
