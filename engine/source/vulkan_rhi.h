@@ -31,10 +31,11 @@ namespace JMEngine
 
 		void Clear();
 		void DrawFrame();
+		void RecreateSwapchain();
+		static void OnWindowResized(GLFWwindow *window, int width, int height);
 
 	private:
-		const std::vector<char const *>
-			m_validationLayers{"VK_LAYER_KHRONOS_validation"};
+		const std::vector<char const *> m_validationLayers{"VK_LAYER_KHRONOS_validation"};
 		std::vector<char const *> m_deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 		bool m_enableValidationLayers{true};
 		bool m_enablePointLightShadow{true};
@@ -77,6 +78,7 @@ namespace JMEngine
 		void CreateCommandPool();
 		void CreateCommandBuffers();
 		void CreateSemaphores();
+		void CleanUpSwapchain();
 
 		bool CheckValidationLayerSupport();
 		std::vector<const char *> GetRequiredExtensions();
@@ -91,10 +93,9 @@ namespace JMEngine
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 		VkShaderModule CreateShaderModule(const std::vector<char> &code);
+		VkPhysicalDeviceFeatures GetRequiredPhysicalDeviceFeatures();
 
 		// function pointers
-		PFN_vkCmdBeginDebugUtilsLabelEXT _vkCmdBeginDebugUtilsLabelEXT;
-		PFN_vkCmdEndDebugUtilsLabelEXT _vkCmdEndDebugUtilsLabelEXT;
 		PFN_vkWaitForFences _vkWaitForFences;
 		PFN_vkResetFences _vkResetFences;
 		PFN_vkResetCommandPool _vkResetCommandPool;

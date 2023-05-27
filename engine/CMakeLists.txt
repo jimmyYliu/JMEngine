@@ -24,8 +24,11 @@ else()
   message(FATAL_ERROR "Unknown Platform")
 endif()
 
+set(SHADER_COMPILE_TARGET JMEngineShaderCompile)
+
 add_subdirectory(3rdparty)
 add_subdirectory(source)
+add_subdirectory(shader)
 
 add_executable (${TARGET_NAME} "JMEngine.cpp" "JMEngine.h")
 

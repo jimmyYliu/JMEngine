@@ -6,6 +6,12 @@
 
 namespace JMEngine
 {
+	void VulkanRHI::OnWindowResized(GLFWwindow *window, int width, int height)
+	{
+		JMEngine::VulkanRHI *app = reinterpret_cast<JMEngine::VulkanRHI *>(glfwGetWindowUserPointer(window));
+		app->RecreateSwapchain();
+	}
+
 	void VulkanRHI::Initialize(std::shared_ptr<WindowSystem> &windowSystem)
 	{
 		m_window = windowSystem->GetWindow();
@@ -16,7 +22,7 @@ namespace JMEngine
 		LOG_DEBUG("enable validation layers in vulkan");
 		m_enableValidationLayers = true;
 #endif
-
+		// TODO: check geometry shader
 #if defined(__GNUC__) && defined(__MACH__)
 		m_enablePointLightShadow = false;
 #else
@@ -36,30 +42,19 @@ namespace JMEngine
 		CreateCommandPool();
 		CreateCommandBuffers();
 		CreateSemaphores();
+
+		glfwSetWindowUserPointer(m_window, this);
+		glfwSetWindowSizeCallback(m_window, OnWindowResized);
 	}
 
 	void VulkanRHI::Clear()
 	{
-		vkDeviceWaitIdle(m_device);
+		CleanUpSwapchain();
 
 		vkDestroySemaphore(m_device, m_renderFinishedSemaphore, nullptr);
 		vkDestroySemaphore(m_device, m_imageAvailableSemaphore, nullptr);
 
 		vkDestroyCommandPool(m_device, m_commandPool, nullptr);
-
-		for (size_t i = 0; i < m_swapchainFramebuffers.size(); i++)
-		{
-			vkDestroyFramebuffer(m_device, m_swapchainFramebuffers[i], nullptr);
-		}
-		vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
-		vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-
-		for (size_t i = 0; i < m_swapchainImageViews.size(); i++)
-		{
-			vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
-		}
-		vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 
 		vkDestroyDevice(m_device, nullptr);
 
@@ -76,7 +71,17 @@ namespace JMEngine
 		vkQueueWaitIdle(m_presentQueue);
 
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(m_device, m_swapchain, std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+		VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+		{
+			RecreateSwapchain();
+			return;
+		}
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+		{
+			LOG_ERROR("failed to acquire swap chain image!");
+		}
 
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -107,7 +112,36 @@ namespace JMEngine
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr; // Optional
 
-		vkQueuePresentKHR(m_presentQueue, &presentInfo);
+		result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+		{
+			RecreateSwapchain();
+		}
+		else if (result != VK_SUCCESS)
+		{
+			LOG_ERROR("failed to present swap chain image!");
+		}
+	}
+
+	void VulkanRHI::RecreateSwapchain()
+	{
+		int width = 0, height = 0;
+		while (width == 0 || height == 0)
+		{
+			glfwGetFramebufferSize(m_window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		vkDeviceWaitIdle(m_device);
+
+		CleanUpSwapchain();
+
+		CreateSwapChain();
+		CreateImageViews();
+		CreateRenderPass();
+		CreateGraphicsPipeline();
+		CreateFramebuffers();
+		CreateCommandBuffers();
 	}
 
 	void VulkanRHI::CreateInstance()
@@ -397,7 +431,7 @@ namespace JMEngine
 
 			if (vkCreateImageView(m_device, &createInfo, nullptr, &m_swapchainImageViews[i]) != VK_SUCCESS)
 			{
-				LOG_ERROR("failed to create image view id=" + std::to_string(i));
+				LOG_ERROR("failed to create image view");
 			}
 		}
 	}
@@ -448,8 +482,9 @@ namespace JMEngine
 
 	void VulkanRHI::CreateGraphicsPipeline()
 	{
-		auto vertShaderCode = AssetManager::ReadFile("D:/code/JMEngine/engine/shader/glsl/compile/test.vert.spv");
-		auto fragShaderCode = AssetManager::ReadFile("D:/code/JMEngine/engine/shader/glsl/compile/test.frag.spv");
+		// TODO: write an interface
+		auto vertShaderCode = AssetManager::ReadFile("D:/code/JMEngine/engine/shader/generated/spv/test.vert.spv");
+		auto fragShaderCode = AssetManager::ReadFile("D:/code/JMEngine/engine/shader/generated/spv/test.frag.spv");
 
 		VkShaderModule vertShaderModule;
 		VkShaderModule fragShaderModule;
@@ -688,6 +723,27 @@ namespace JMEngine
 		}
 	}
 
+	void VulkanRHI::CleanUpSwapchain()
+	{
+		vkDeviceWaitIdle(m_device);
+
+		for (size_t i = 0; i < m_swapchainFramebuffers.size(); i++)
+		{
+			vkDestroyFramebuffer(m_device, m_swapchainFramebuffers[i], nullptr);
+		}
+		vkFreeCommandBuffers(m_device, m_commandPool, static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
+
+		vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
+		vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+
+		for (size_t i = 0; i < m_swapchainImageViews.size(); i++)
+		{
+			vkDestroyImageView(m_device, m_swapchainImageViews[i], nullptr);
+		}
+		vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+	}
+
 	bool VulkanRHI::CheckValidationLayerSupport()
 	{
 		uint32_t layerCount;
@@ -777,6 +833,7 @@ namespace JMEngine
 	bool VulkanRHI::IsDeviceSuitable(VkPhysicalDevice device)
 	{
 		auto queueIndices = FindQueueFamilies(device);
+
 		bool isExtensionsSupported = CheckDeviceExtensionSupport(device);
 		bool isSwapchainAdequate = false;
 		if (isExtensionsSupported)
@@ -788,8 +845,7 @@ namespace JMEngine
 
 		VkPhysicalDeviceFeatures physicalDeviceFeatures;
 		vkGetPhysicalDeviceFeatures(device, &physicalDeviceFeatures);
-
-		if (queueIndices.IsComplete() && isSwapchainAdequate && physicalDeviceFeatures.samplerAnisotropy)
+		if (queueIndices.IsComplete() && isSwapchainAdequate && physicalDeviceFeatures.samplerAnisotropy && physicalDeviceFeatures.fragmentStoresAndAtomics && physicalDeviceFeatures.independentBlend)
 		{
 			return true;
 		}

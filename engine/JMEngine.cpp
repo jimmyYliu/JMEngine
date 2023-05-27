@@ -10,6 +10,7 @@ int main(int, char **)
 	window->Initialize(windowInfo);
 	kulkanRHI->Initialize(window);
 	GLFWwindow *mainWindow = window->GetWindow();
+
 	while (!glfwWindowShouldClose(mainWindow))
 	{
 		glfwPollEvents();

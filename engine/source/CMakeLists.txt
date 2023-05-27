@@ -4,8 +4,10 @@ set(TARGET_NAME JMEngineRuntime)
 file(GLOB_RECURSE HEADER_FILES "*.h")
 file(GLOB_RECURSE SOURCE_FILES "*.cpp")
 
+
 add_library (${TARGET_NAME}  ${HEADER_FILES} ${SOURCE_FILES})
 
+add_dependencies(${TARGET_NAME} ${SHADER_COMPILE_TARGET})
 target_include_directories(${TARGET_NAME} PUBLIC ${ENGINE_ROOT_DIR})
 
 target_link_libraries(${TARGET_NAME} 
